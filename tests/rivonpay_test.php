@@ -126,6 +126,106 @@ $authModes = array(
     'Basic base64(pk:)'   => 'Basic ' . base64_encode($pk . ':'),
 );
 
+// --- modo matriz de split: php tests/rivonpay_test.php --split-matrix -------
+//
+// Prevê o repasse pela regra documentada e compara com o que a API calcula.
+// Divergência significa que docs/API_FINDINGS.md está errado, não o teste.
+// Não exige pagamento: splits[].amount já vem na resposta da criação.
+if ($argc > 1 && $argv[1] === '--split-matrix') {
+    $recipient = env('TEST_SPLIT_RECIPIENT');
+    $docNumber = env('TEST_DOC_NUMBER');
+    if ($recipient === null || $docNumber === null) {
+        fwrite(STDERR, "ERRO: defina TEST_SPLIT_RECIPIENT e TEST_DOC_NUMBER em tests/.env.\n");
+        exit(1);
+    }
+
+    $auth     = 'Basic ' . base64_encode($pk . ':' . $sk);
+    $customer = array(
+        'name'     => env('TEST_NAME', 'Cliente Teste'),
+        'email'    => env('TEST_EMAIL', 'teste@example.com'),
+        'phone'    => env('TEST_PHONE', '61999999999'),
+        'document' => array('type' => env('TEST_DOC_TYPE', 'CPF'), 'number' => $docNumber),
+    );
+
+    hr('MATRIZ DE SPLIT');
+    echo "Cria cobrancas reais de valor baixo; todas expiram sem pagamento.\n\n";
+    printf("%-28s %10s %10s %11s %21s   %s\n", 'CENARIO', 'BRUTO', 'LIQUIDO', 'PREVISTO', 'OBTIDO', 'RESULTADO');
+    echo str_repeat('-', 100) . "\n";
+
+    $fee    = 50; // taxa fixa observada
+    $casos  = array(
+        array('fixo R$0,50 em R$5',        500,   'FIXED',        50),
+        array('fixo R$1,00 em R$5',        500,   'FIXED',       100),
+        array('fixo = liquido exato',      107,   'FIXED',        57),
+        array('fixo 1 centavo acima',      107,   'FIXED',        58),
+        array('fixo maior que a venda',    500,   'FIXED',      3000),
+        array('1% de R$100',             10000,   'PERCENTAGE',  100),
+        array('10% de R$5',                500,   'PERCENTAGE', 1000),
+        array('10% de R$100',            10000,   'PERCENTAGE', 1000),
+        array('50% de R$10',              1000,   'PERCENTAGE', 5000),
+        array('100% de R$10',             1000,   'PERCENTAGE',10000),
+        array('10% com quebra (liq 57)',   107,   'PERCENTAGE', 1000),
+        array('3,33% com quebra',          150,   'PERCENTAGE',  333),
+        array('7% com quebra (liq 283)',   333,   'PERCENTAGE',  700),
+    );
+
+    $divergencias = 0;
+    foreach ($casos as $caso) {
+        list($label, $amount, $tipo, $valor) = $caso;
+        $net = $amount - $fee;
+
+        // A API TRUNCA a fracao de centavo, nao arredonda: verificado com
+        // 99,5 -> 99, 5,7 -> 5 e 19,81 -> 19. O resto fica com o lojista.
+        $prev = ($tipo === 'FIXED') ? $valor : (int) floor($net * $valor / 10000);
+
+        list($code, $headers, $body, $err) = request(
+            'POST',
+            '/v1/transactions/',
+            array('Content-Type: application/json', 'Authorization: ' . $auth),
+            json_encode(array(
+                'amount'   => $amount,
+                'customer' => $customer,
+                'split'    => array(array(
+                    'recipientSplitId' => $recipient,
+                    'amountType'       => $tipo,
+                    'value'            => $valor,
+                )),
+            ))
+        );
+
+        $tx      = json_decode($body, true);
+        $prevTxt = ($prev > $net) ? 'recusa' : 'R$ ' . number_format($prev / 100, 2, ',', '.');
+
+        if ($code >= 200 && $code < 300) {
+            $got    = isset($tx['splits'][0]['amount']) ? (int) $tx['splits'][0]['amount'] : 0;
+            $gotTxt = 'R$ ' . number_format($got / 100, 2, ',', '.');
+            $ok     = ($prev <= $net && $got === $prev);
+        } else {
+            $gotTxt = isset($tx['code']) ? $tx['code'] : ('HTTP ' . $code);
+            $ok     = ($prev > $net && $gotTxt === 'SplitExceedsNet');
+        }
+
+        if (!$ok) {
+            $divergencias++;
+        }
+
+        printf(
+            "%-28s %10s %10s %11s %21s   %s\n",
+            $label,
+            'R$ ' . number_format($amount / 100, 2, ',', '.'),
+            'R$ ' . number_format($net / 100, 2, ',', '.'),
+            $prevTxt,
+            $gotTxt,
+            $ok ? 'confere' : '<<< DIVERGE'
+        );
+    }
+
+    echo "\n" . ($divergencias === 0
+        ? "Todos conferem: o modelo documentado prevê a API exatamente.\n"
+        : $divergencias . " divergência(s) — docs/API_FINDINGS.md precisa ser corrigido.\n");
+    exit($divergencias === 0 ? 0 : 1);
+}
+
 // --- modo consulta: php tests/rivonpay_test.php <id> ------------------------
 if ($argc > 1) {
     $id = $argv[1];

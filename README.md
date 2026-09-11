@@ -261,6 +261,19 @@ Em máquinas sem PHP:
 bash tests/rivonpay_test.sh
 ```
 
+Para validar split sem pagar nada — a API já devolve o repasse calculado na
+criação:
+
+```bash
+bash tests/rivonpay_test.sh --split-matrix
+```
+
+Percorre 13 cenários (valor fixo, percentual, quebras de centavo e os limites
+que a API recusa), **prevê** o repasse pela regra documentada e compara com o
+resultado real. Qualquer `DIVERGE` significa que `docs/API_FINDINGS.md` está
+errado — foi assim que se descobriu que a API trunca a fração de centavo em vez
+de arredondar. Exige `TEST_SPLIT_RECIPIENT` em `tests/.env`.
+
 Depois de pagar a cobrança gerada, consulte o status para conferir a transição:
 
 ```bash

@@ -58,6 +58,88 @@ declare -a VALUES=(
   "Basic $(b64 "${RIVONPAY_PK}:")"
 )
 
+# ---- modo matriz de split --------------------------------------------------
+# ./tests/rivonpay_test.sh --split-matrix
+#
+# Percorre combinacoes de valor x tipo x split, PREVE o repasse pela regra
+# documentada e compara com o que a API calcula. Divergencia significa que a
+# documentacao esta errada, nao o teste.
+#
+# Nao exige pagamento: splits[].amount ja vem calculado na resposta da criacao.
+# Cria cobrancas reais, que expiram sozinhas sem pagamento.
+if [ "${1:-}" = "--split-matrix" ]; then
+  : "${TEST_SPLIT_RECIPIENT:?defina TEST_SPLIT_RECIPIENT (UUID do recebedor) em tests/.env}"
+  : "${TEST_DOC_NUMBER:?defina TEST_DOC_NUMBER em tests/.env}"
+
+  AUTH_OK="${VALUES[0]}"   # Basic base64(pk:sk), confirmado
+  CUST="{\"name\":\"${TEST_NAME:-Cliente Teste}\",\"email\":\"${TEST_EMAIL:-teste@example.com}\",\"phone\":\"${TEST_PHONE:-61999999999}\",\"document\":{\"type\":\"${TEST_DOC_TYPE:-CPF}\",\"number\":\"$TEST_DOC_NUMBER\"}}"
+
+  echo
+  echo "===== MATRIZ DE SPLIT ====="
+  echo "Recebedor: $TEST_SPLIT_RECIPIENT"
+  echo "Cria cobrancas reais de valor baixo; todas expiram sem pagamento."
+  echo
+  printf '%-28s %8s %8s %8s %10s %10s  %s\n' "CENARIO" "BRUTO" "TAXA" "LIQUIDO" "PREVISTO" "OBTIDO" "RESULTADO"
+  printf '%s\n' "-------------------------------------------------------------------------------------------"
+
+  caso() {
+    local label="$1" amount="$2" tipo="$3" valor="$4"
+    local body="{\"amount\":$amount,\"customer\":$CUST,\"split\":[{\"recipientSplitId\":\"$TEST_SPLIT_RECIPIENT\",\"amountType\":\"$tipo\",\"value\":$valor}]}"
+    local code
+    code=$(curl -s -o "$TMPD/m.json" -w '%{http_code}' --max-time 30 \
+      -X POST "$BASE/v1/transactions/" -H "Content-Type: application/json" \
+      -H "Authorization: $AUTH_OK" -d "$body")
+    node -e '
+      const fs=require("fs");
+      const [label,amount,tipo,valor,code,file]=process.argv.slice(1);
+      const t=JSON.parse(fs.readFileSync(file,"utf8"));
+      const FEE=50;                       // taxa fixa observada
+      const net=Number(amount)-FEE;       // split incide sobre o liquido
+      const v=Number(valor);
+      // Previsao pela regra documentada.
+      // A API TRUNCA a fracao de centavo, nao arredonda: verificado com
+      // 99,5 -> 99, 5,7 -> 5 e 19,81 -> 19. O resto fica com o lojista.
+      let prev = (tipo==="FIXED") ? v : Math.floor(net*v/10000);
+      let prevTxt, gotTxt, ok;
+      if (prev>net) { prevTxt="recusa"; } else { prevTxt="R$ "+(prev/100).toFixed(2); }
+      if (Number(code)>=200 && Number(code)<300) {
+        const got=(t.splits&&t.splits[0])?t.splits[0].amount:0;
+        gotTxt="R$ "+(got/100).toFixed(2);
+        ok = (prev<=net) && (got===prev);
+      } else {
+        gotTxt=t.code||("HTTP "+code);
+        ok = (prev>net) && t.code==="SplitExceedsNet";
+      }
+      console.log(
+        label.padEnd(28)+
+        ("R$ "+(Number(amount)/100).toFixed(2)).padStart(10)+
+        ("R$ "+(FEE/100).toFixed(2)).padStart(9)+
+        ("R$ "+(net/100).toFixed(2)).padStart(10)+
+        prevTxt.padStart(11)+gotTxt.padStart(22)+"   "+(ok?"confere":"<<< DIVERGE"));
+    ' "$label" "$amount" "$tipo" "$valor" "$code" "$TMPD/m.json"
+  }
+
+  #     rotulo                       bruto  tipo         value
+  caso "fixo R\$0,50 em R\$5"          500  FIXED         50
+  caso "fixo R\$1,00 em R\$5"          500  FIXED        100
+  caso "fixo = liquido exato"          107  FIXED         57
+  caso "fixo 1 centavo acima"          107  FIXED         58
+  caso "fixo maior que a venda"        500  FIXED       3000
+  caso "1% de R\$100"                10000  PERCENTAGE   100
+  caso "10% de R\$5"                   500  PERCENTAGE  1000
+  caso "10% de R\$100"               10000  PERCENTAGE  1000
+  caso "50% de R\$10"                 1000  PERCENTAGE  5000
+  caso "100% de R\$10"                1000  PERCENTAGE 10000
+  caso "10% com quebra (liq 57)"       107  PERCENTAGE  1000
+  caso "3,33% com quebra"              150  PERCENTAGE   333
+  caso "7% com quebra (liq 283)"       333  PERCENTAGE   700
+
+  echo
+  echo "PREVISTO usa a regra documentada: liquido = bruto - R\$0,50; split incide sobre o liquido."
+  echo "Qualquer DIVERGE significa que docs/API_FINDINGS.md precisa ser corrigido."
+  exit 0
+fi
+
 # ---- modo consulta ---------------------------------------------------------
 if [ $# -ge 1 ]; then
   echo; echo "===== GET /v1/transactions/$1 ====="

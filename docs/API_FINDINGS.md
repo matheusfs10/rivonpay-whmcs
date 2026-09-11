@@ -386,19 +386,35 @@ Quem seguir só a spec manda `10` esperando 10% e recebe **0,1%** — um erro de
 
 ### Verificado contra a API (2026-09-11)
 
-Duas cobranças de R$ 5,00, sem pagar — `splits[].amount` já vem calculado na
-resposta da criação, o que permite conferir a unidade sem mover dinheiro:
+`splits[].amount` já vem calculado na resposta da criação, o que permite conferir
+a unidade **sem mover dinheiro**. `tests/rivonpay_test.sh --split-matrix`
+automatiza isso: prevê o repasse pela regra abaixo e compara com o que a API
+devolve, em 13 cenários. Reproduza sempre que suspeitar da documentação.
 
-| Enviado | `splits[0].amount` | Leitura |
-|---|---|---|
-| `FIXED`, `value: 50` | `50` → R$ 0,50 | centavos confirmado |
-| `PERCENTAGE`, `value: 1000` | `45` → R$ 0,45 | 10% confirmado |
+A regra completa, com todos os 13 casos conferindo:
 
-O segundo caso confirma duas coisas de uma vez: R$ 0,45 é 10% de **R$ 4,50**, o
-líquido, e não de R$ 5,00. Ou seja, a unidade **e** a base de cálculo.
+```
+liquido  = bruto − 50                        (taxa fixa de R$ 0,50)
+FIXED       → repasse = value                (centavos)
+PERCENTAGE  → repasse = floor(liquido × value / 10000)
+```
 
-> **Para testar split, use este método.** `splits[].amount` na resposta da
-> criação é a fonte confiável, e não exige pagamento nem consulta ao painel.
+### ⚠ O percentual é TRUNCADO, não arredondado
+
+Descoberto pela matriz, que inicialmente acusou três divergências porque eu havia
+assumido arredondamento:
+
+| Líquido | Percentual | Cálculo exato | API devolve |
+|---|---|---|---|
+| R$ 99,50 | 1% | 99,5 centavos | **99** |
+| R$ 0,57 | 10% | 5,7 centavos | **5** |
+| R$ 2,83 | 7% | 19,81 centavos | **19** |
+
+A fração de centavo **fica com o lojista**, nunca com o recebedor do split. Em
+volume alto isso soma: a cada cobrança, até 0,99 centavo a mais para você.
+
+Não afeta o módulo — quem calcula é a API, que recebe `value` e devolve o
+repasse. Afeta quem for conferir extrato ou prever comissão.
 
 ### Limites e erros do split
 
