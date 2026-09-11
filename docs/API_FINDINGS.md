@@ -355,6 +355,69 @@ esperada**, não um erro de programação. O tratamento correto é:
 
 ---
 
+## 8. Split — segregação de valores
+
+Permite dividir a cobrança entre vários recebedores. Campo `split` opcional no
+corpo da criação, **máximo 20 itens**:
+
+```json
+"split": [
+  { "recipientSplitId": "00000000-0000-4000-8000-000000000001",
+    "amountType": "PERCENTAGE", "value": 1000 },
+  { "recipientSplitId": "00000000-0000-4000-8000-000000000002",
+    "amountType": "FIXED", "value": 500 }
+]
+```
+
+### ⚠ A unidade de `value` muda conforme o `amountType`
+
+Este é o ponto perigoso, e **não está no `openapi.json`** — a spec declara apenas
+`integer`, sem unidade:
+
+| `amountType` | Unidade de `value` | Exemplo |
+|---|---|---|
+| `FIXED` | **centavos** | `500` = R$ 5,00 |
+| `PERCENTAGE` | **centésimos de %** | `1000` = **10%**, não 1000% nem 10,00% |
+
+Quem seguir só a spec manda `10` esperando 10% e recebe **0,1%** — um erro de
+100× que não gera erro nenhum, apenas divide errado e silenciosamente. Qualquer
+implementação de split precisa de teste que confira o valor efetivamente
+repassado, não só o HTTP 201.
+
+### Incide sobre o líquido, não sobre o bruto
+
+Da descrição da própria rota:
+
+> "O split é opcional; quando presente, incide sobre o valor líquido — a taxa
+> sai antes e é paga apenas pelo lojista da cobrança."
+
+Ou seja, a ordem é `amount → (− fee) → netAmount → split`. Como a taxa é fixa em
+R$ 0,50, ela pesa desproporcionalmente em valores baixos: numa cobrança de
+R$ 1,00, o líquido é R$ 0,50 e um split de 10% repassa R$ 0,05, não R$ 0,10.
+
+### Não há API para gerenciar recebedores
+
+Nenhuma rota do `openapi.json` cria, lista ou consulta recebedores de split —
+busca por `recipient`, `split` ou `beneficiario` nos caminhos não retorna nada.
+Os `recipientSplitId` têm de ser obtidos no painel da RivonPay e configurados
+manualmente de onde forem usados.
+
+### Resposta
+
+O objeto devolvido traz `splits` como array de
+`{ recipientSplitId, amount }`. Em cobranças sem split, vem `[]` — confirmado nas
+cobranças reais. **A unidade de `splits[].amount` na resposta não foi verificada**
+(presumivelmente centavos, como todo valor da API, mas isso é inferência, não
+observação).
+
+### Status no módulo
+
+**Não implementado.** O módulo envia cobranças sem `split`. Implementar exige
+antes decidir como o split mapeia para o WHMCS — por produto, por cliente, ou
+fixo global — e obter os `recipientSplitId` no painel.
+
+---
+
 ## Situação da verificação
 
 | Item | Situação |
