@@ -36,6 +36,15 @@ para que uma aba esquecida aberta não produza uma cobrança nova por hora:
 
 ![Tela de código expirado, com botão para gerar um novo](docs/img/expirado.png)
 
+A página segue a paleta da RivonPay — os mesmos tokens do painel deles. Escuro é
+o padrão, como no painel; quem usa o dispositivo em modo claro vê a variante
+clara automaticamente, via `prefers-color-scheme`:
+
+![A mesma página de pagamento no tema claro](docs/img/pagamento-claro.png)
+
+O QR Code fica **sempre sobre branco**, em qualquer tema — leitor de banco precisa
+de escuro sobre claro, e a imagem ficaria ilegível sem essa moldura.
+
 > As imagens acima são renderizadas com dados fictícios a partir do CSS do
 > próprio `rivonpix.php`.
 

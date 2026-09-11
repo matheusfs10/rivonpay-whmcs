@@ -44,15 +44,23 @@ function rivonpix_fail($httpCode, $title, $message)
 {
     http_response_code($httpCode);
     header('Content-Type: text/html; charset=utf-8');
+    // Paleta da RivonPay, com o claro entrando por prefers-color-scheme.
     echo '<!doctype html><html lang="pt-br"><head><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<title>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</title></head>'
-        . '<body style="margin:0;font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;'
-        . 'background:#f5f6fa;color:#333;display:flex;align-items:center;justify-content:center;min-height:100vh;">'
-        . '<div style="max-width:420px;padding:32px;background:#fff;border-radius:12px;'
-        . 'box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:center;">'
+        . '<title>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</title><style>'
+        . ':root{--bg:#0a0c0d;--card:#16191c;--border:#212529;--fg:#e7eaec;--muted:#949ca3;color-scheme:dark}'
+        . '@media (prefers-color-scheme:light){:root{--bg:#f6f7f9;--card:#fff;--border:#e2e6eb;'
+        . '--fg:#181c21;--muted:#5c656e;color-scheme:light}}'
+        . 'body{margin:0;font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;'
+        . 'background:var(--bg);color:var(--fg);display:flex;align-items:center;'
+        . 'justify-content:center;min-height:100vh;padding:16px}'
+        . '.box{max-width:420px;padding:32px;background:var(--card);border:1px solid var(--border);'
+        . 'border-radius:14px;text-align:center}'
+        . '</style></head><body><div class="box">'
+        . '<img src="https://app.rivonpay.com.br/logo.svg" alt="" width="34" height="34" '
+        . 'style="display:block;margin:0 auto 14px;">'
         . '<h1 style="margin:0 0 10px;font-size:19px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h1>'
-        . '<p style="margin:0;color:#666;">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<p style="margin:0;color:var(--muted);">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
         . '</div></body></html>';
     exit;
 }
@@ -162,24 +170,33 @@ if (!empty($_GET['link'])) {
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="pt-br"><head><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<title>Link de pagamento — Fatura #' . (int) $invoiceId . '</title></head>'
-        . '<body style="margin:0;padding:40px 16px;background:#f7f8fc;'
-        . 'font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2333;">'
-        . '<div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eceef5;'
-        . 'border-radius:14px;padding:28px;">'
-        . '<h1 style="margin:0 0 4px;font-size:20px;">Link de pagamento</h1>'
-        . '<p style="margin:0 0 18px;color:#6b7280;">Fatura #' . (int) $invoiceId
+        . '<title>Link de pagamento — Fatura #' . (int) $invoiceId . '</title><style>'
+        . ':root{--primary:#22c55e;--primary-hover:#16a34a;--bg:#0a0c0d;--surface:#0f1214;'
+        . '--card:#16191c;--border:#212529;--fg:#e7eaec;--muted:#949ca3;color-scheme:dark}'
+        . '@media (prefers-color-scheme:light){:root{--primary:#16a34a;--primary-hover:#15803d;'
+        . '--bg:#f6f7f9;--surface:#f0f2f5;--card:#fff;--border:#e2e6eb;--fg:#181c21;'
+        . '--muted:#5c656e;color-scheme:light}}'
+        . 'body{margin:0;padding:40px 16px;background:var(--bg);color:var(--fg);'
+        . 'font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif}'
+        . '.box{max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--border);'
+        . 'border-radius:14px;padding:28px}'
+        . 'input{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;'
+        . 'font-family:monospace;font-size:13px;background:var(--surface);color:var(--fg)}'
+        . 'button{margin-top:12px;padding:13px 20px;border:0;border-radius:8px;'
+        . 'background:var(--primary);color:#04140a;font-size:15px;font-weight:700;'
+        . 'cursor:pointer;width:100%}button:hover{background:var(--primary-hover)}'
+        . '</style></head><body><div class="box">'
+        . '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
+        . '<img src="https://app.rivonpay.com.br/logo.svg" alt="" width="26" height="26">'
+        . '<h1 style="margin:0;font-size:20px;">Link de pagamento</h1></div>'
+        . '<p style="margin:0 0 18px;color:var(--muted);">Fatura #' . (int) $invoiceId
         . ' — ' . htmlspecialchars(trim($client->firstname . ' ' . $client->lastname), ENT_QUOTES, 'UTF-8') . '</p>'
-        . '<input id="u" readonly value="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" '
-        . 'style="width:100%;padding:12px;border:1px solid #dfe3ee;border-radius:8px;'
-        . 'font-family:monospace;font-size:13px;background:#f9fafb;">'
+        . '<input id="u" readonly value="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">'
         . '<button onclick="var i=document.getElementById(\'u\');i.select();'
-        . 'document.execCommand(\'copy\');this.textContent=\'Copiado!\';" '
-        . 'style="margin-top:12px;padding:13px 20px;border:0;border-radius:8px;background:#8b1fa9;'
-        . 'color:#fff;font-size:15px;font-weight:700;cursor:pointer;width:100%;">Copiar link</button>'
-        . '<p style="margin:18px 0 0;color:#6b7280;font-size:13px;">'
-        . 'Válido enquanto a secret key do gateway não for trocada. '
-        . 'Rotacionar a chave invalida todos os links já enviados.</p>'
+        . 'document.execCommand(\'copy\');this.textContent=\'Copiado!\';">Copiar link</button>'
+        . '<p style="margin:18px 0 0;color:var(--muted);font-size:13px;">'
+        . 'Para revogar, apague a linha correspondente em <code>mod_rivonpay_links</code>. '
+        . 'Trocar a secret key do gateway não derruba este link.</p>'
         . '</div></body></html>';
     exit;
 }
@@ -316,40 +333,68 @@ header('Content-Type: text/html; charset=utf-8');
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pagamento via PIX — Fatura #<?= e($invoiceId) ?></title>
 <style>
+    /* Paleta da RivonPay, copiada dos tokens do painel (app.rivonpay.com.br).
+       Escuro e o padrao deles; o claro entra quando o dispositivo pede. */
+    :root {
+        --primary:#22c55e; --primary-hover:#16a34a; --secondary:#12321f;
+        --danger:#f43f5e;
+        --bg:#0a0c0d; --surface:#0f1214; --card:#16191c;
+        --border:#212529; --hover:#1c2024;
+        --fg:#e7eaec; --muted:#949ca3; --faint:#6e767d;
+        --warn-bg:#3a2c05; --warn-fg:#fbbf24;
+        color-scheme: dark;
+    }
+    @media (prefers-color-scheme: light) {
+        :root {
+            --primary:#16a34a; --primary-hover:#15803d; --secondary:#e9f9ef;
+            --danger:#dc2626;
+            --bg:#f6f7f9; --surface:#ffffff; --card:#ffffff;
+            --border:#e2e6eb; --hover:#f0f2f5;
+            --fg:#181c21; --muted:#5c656e; --faint:#828b94;
+            --warn-bg:#fef6e0; --warn-fg:#8a6100;
+            color-scheme: light;
+        }
+    }
+
     * { box-sizing: border-box; }
-    body { margin:0; padding:32px 16px; background:#f7f8fc;
-           font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:#1f2333; }
+    body { margin:0; padding:32px 16px; background:var(--bg); color:var(--fg);
+           font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
     .head { text-align:center; margin-bottom:28px; }
     .head h1 { margin:0 0 6px; font-size:26px; }
-    .head p { margin:0; color:#6b7280; }
+    .head p { margin:0; color:var(--muted); }
     .grid { display:flex; gap:20px; max-width:940px; margin:0 auto; align-items:flex-start; flex-wrap:wrap; }
-    .card { background:#fff; border:1px solid #eceef5; border-radius:14px; padding:26px; flex:1 1 340px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px;
+            padding:26px; flex:1 1 340px; }
     .center { text-align:center; }
-    .pill { display:inline-block; padding:7px 16px; border-radius:999px; background:#fef6e0;
-            color:#8a6100; font-size:14px; font-weight:600; }
-    .pill::before { content:"●"; margin-right:7px; color:#e3a008; }
-    .label { color:#6b7280; font-size:14px; margin:16px 0 2px; }
-    .timer { font-size:30px; font-weight:700; color:#7c3aed; letter-spacing:1px; }
-    .qr { width:260px; height:260px; margin:18px auto; display:block; border:1px solid #eceef5;
+    .pill { display:inline-block; padding:7px 16px; border-radius:999px;
+            background:var(--warn-bg); color:var(--warn-fg); font-size:14px; font-weight:600; }
+    .pill::before { content:"●"; margin-right:7px; }
+    .label { color:var(--muted); font-size:14px; margin:16px 0 2px; }
+    .timer { font-size:30px; font-weight:700; color:var(--primary); letter-spacing:1px; }
+    .timer.expirado { color:var(--danger); }
+    /* O QR fica SEMPRE sobre branco: leitor de banco precisa de escuro sobre
+       claro, e no tema escuro a imagem ficaria ilegivel sem esta moldura. */
+    .qr { width:260px; height:260px; margin:18px auto; display:block; border:1px solid var(--border);
           border-radius:10px; padding:10px; background:#fff; }
-    .emv { font-size:12px; color:#4b5563; word-break:break-all; background:#f9fafb;
-           border:1px solid #eceef5; border-radius:8px; padding:10px; margin:0 0 4px; max-height:64px; overflow:auto; }
+    .emv { font-size:12px; color:var(--muted); word-break:break-all; background:var(--surface);
+           border:1px solid var(--border); border-radius:8px; padding:10px; margin:0 0 4px;
+           max-height:64px; overflow:auto; }
     .btn { display:block; width:100%; margin-top:14px; padding:15px; border:0; border-radius:10px;
-           background:#8b1fa9; color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
-    .btn:hover { filter:brightness(1.08); }
-    .btn.green { background:#0f9d58; text-decoration:none; text-align:center; }
+           background:var(--primary); color:#04140a; font-size:16px; font-weight:700; cursor:pointer; }
+    .btn:hover { background:var(--primary-hover); }
+    .btn.green { text-decoration:none; text-align:center; }
     h2 { margin:0 0 20px; font-size:19px; }
     .row { display:flex; justify-content:space-between; gap:12px; padding:11px 0; }
-    .sep { border-top:1px solid #eef0f6; }
-    .muted { color:#6b7280; font-size:14px; }
-    .total { font-size:22px; font-weight:700; color:#0f9d58; }
-    .badge { display:flex; gap:12px; align-items:center; background:#f6f1fe;
-             border-radius:10px; padding:14px; margin:16px 0; }
+    .sep { border-top:1px solid var(--border); }
+    .muted { color:var(--muted); font-size:14px; }
+    .total { font-size:22px; font-weight:700; color:var(--primary); }
+    .badge { display:flex; gap:12px; align-items:center; background:var(--secondary);
+             border:1px solid var(--border); border-radius:10px; padding:14px; margin:16px 0; }
     .badge strong { display:block; }
-    ul.trust { list-style:none; margin:0; padding:0; color:#4b5563; font-size:14px; }
+    ul.trust { list-style:none; margin:0; padding:0; color:var(--muted); font-size:14px; }
     ul.trust li { padding:5px 0; }
-    .ok-circle { width:74px; height:74px; border-radius:50%; background:#e6f6ec; color:#0f9d58;
-                 font-size:38px; line-height:74px; margin:0 auto 16px; }
+    .ok-circle { width:74px; height:74px; border-radius:50%; background:var(--secondary);
+                 color:var(--primary); font-size:38px; line-height:74px; margin:0 auto 16px; }
     @media (max-width:760px) { .grid { flex-direction:column; } .card { width:100%; } }
 </style>
 </head>
@@ -363,7 +408,7 @@ header('Content-Type: text/html; charset=utf-8');
         <p class="muted" style="margin:0 0 20px;">
             Seu pagamento foi processado com sucesso.<br>Você receberá um e-mail de confirmação em breve.
         </p>
-        <div style="background:#f7f8fc;border-radius:10px;padding:14px;margin-bottom:20px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px;">
             <div class="muted">Fatura</div>
             <strong style="font-size:17px;">#<?= e($invoiceId) ?></strong>
         </div>
@@ -373,6 +418,8 @@ header('Content-Type: text/html; charset=utf-8');
 <?php else: ?>
 
     <div class="head">
+        <img src="https://app.rivonpay.com.br/logo.svg" alt="RivonPay" width="38" height="38"
+             style="display:block;margin:0 auto 10px;">
         <h1>Pagamento via PIX</h1>
         <p>Escaneie o QR Code ou copie o código PIX</p>
     </div>
@@ -380,7 +427,7 @@ header('Content-Type: text/html; charset=utf-8');
     <div class="grid">
         <div class="card center">
             <?php if ($errorText !== ''): ?>
-                <p style="color:#b3261e;margin:0;"><?= e($errorText) ?></p>
+                <p style="color:var(--danger);margin:0;"><?= e($errorText) ?></p>
                 <button class="btn" onclick="location.reload()">Tentar novamente</button>
             <?php else: ?>
                 <span class="pill" id="rp-status">Aguardando pagamento</span>
@@ -462,7 +509,7 @@ header('Content-Type: text/html; charset=utf-8');
         function pinta() {
             if (restam <= 0) {
                 timer.textContent = "Expirado";
-                timer.style.color = "#b3261e";
+                timer.classList.add("expirado");
                 document.getElementById("rp-status").textContent = "Código expirado";
                 copy.textContent = "Gerar novo código";
                 copy.onclick = function () { location.reload(); };
