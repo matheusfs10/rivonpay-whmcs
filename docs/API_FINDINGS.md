@@ -120,7 +120,7 @@ Obrigatórios: **apenas `amount` e `customer`.**
 | `postbackUrl` | string(uri) | opcional — **aceito no body**, não precisa configurar no painel |
 | `expiresInSeconds` | integer | opcional, **60 a 86400** (máx. 24h). **O módulo não envia** — deixa a plataforma decidir e usa o `pix.expiresAt` devolvido |
 | `metadata` | object | opcional, chaves livres |
-| `split` | array | opcional, máx. 20 itens (não usado pelo módulo) |
+| `split` | array | opcional, máx. 20 itens — atenção às unidades, ver seção 8 |
 
 **Não existem** os campos `paymentMethod` nem `items[]` — a rota é exclusivamente Pix.
 Enviar campos extras é desnecessário; o schema não declara `additionalProperties: false`
@@ -380,20 +380,34 @@ Este é o ponto perigoso, e **não está no `openapi.json`** — a spec declara 
 | `PERCENTAGE` | **centésimos de %** | `1000` = **10%**, não 1000% nem 10,00% |
 
 Quem seguir só a spec manda `10` esperando 10% e recebe **0,1%** — um erro de
-100× que não gera erro nenhum, apenas divide errado e silenciosamente. Qualquer
-implementação de split precisa de teste que confira o valor efetivamente
-repassado, não só o HTTP 201.
+100× que não gera erro nenhum, apenas divide errado e silenciosamente.
+
+### Verificado contra a API (2026-09-11)
+
+Duas cobranças de R$ 5,00, sem pagar — `splits[].amount` já vem calculado na
+resposta da criação, o que permite conferir a unidade sem mover dinheiro:
+
+| Enviado | `splits[0].amount` | Leitura |
+|---|---|---|
+| `FIXED`, `value: 50` | `50` → R$ 0,50 | centavos confirmado |
+| `PERCENTAGE`, `value: 1000` | `45` → R$ 0,45 | 10% confirmado |
+
+O segundo caso confirma duas coisas de uma vez: R$ 0,45 é 10% de **R$ 4,50**, o
+líquido, e não de R$ 5,00. Ou seja, a unidade **e** a base de cálculo.
+
+> **Para testar split, use este método.** `splits[].amount` na resposta da
+> criação é a fonte confiável, e não exige pagamento nem consulta ao painel.
 
 ### Incide sobre o líquido, não sobre o bruto
 
-Da descrição da própria rota:
+Confirmado numericamente acima, e coerente com a descrição da rota:
 
 > "O split é opcional; quando presente, incide sobre o valor líquido — a taxa
 > sai antes e é paga apenas pelo lojista da cobrança."
 
-Ou seja, a ordem é `amount → (− fee) → netAmount → split`. Como a taxa é fixa em
-R$ 0,50, ela pesa desproporcionalmente em valores baixos: numa cobrança de
-R$ 1,00, o líquido é R$ 0,50 e um split de 10% repassa R$ 0,05, não R$ 0,10.
+A ordem é `amount → (− fee) → netAmount → split`. Como a taxa é fixa em R$ 0,50,
+ela pesa desproporcionalmente em valores baixos: numa cobrança de R$ 1,00 o
+líquido é R$ 0,50, e um split fixo de R$ 0,50 consumiria **todo** o líquido.
 
 ### Não há API para gerenciar recebedores
 
@@ -412,9 +426,17 @@ observação).
 
 ### Status no módulo
 
-**Não implementado.** O módulo envia cobranças sem `split`. Implementar exige
-antes decidir como o split mapeia para o WHMCS — por produto, por cliente, ou
-fixo global — e obter os `recipientSplitId` no painel.
+**Implementado e verificado.** Configurável no admin e desligado por padrão:
+recebedor, tipo e valor. O admin informa no formato natural (`10` para 10%,
+`5,00` para R$ 5,00) e a conversão para a unidade da API acontece em
+`rivonpay_splitFor()`, num lugar só.
+
+Configuração inválida não impede o pagamento: registra `split-ignorado` no
+Gateway Log e emite a cobrança sem divisão. Dividir errado é pior que não dividir.
+
+O mapeamento adotado é **fixo global** — todo pagamento do gateway divide com o
+mesmo recebedor. Split por produto ou por cliente exigiria campos personalizados
+e soma de regras por item da fatura, o que não foi necessário até agora.
 
 ---
 
@@ -428,6 +450,7 @@ fixo global — e obter os `recipientSplitId` no painel.
 | `qrCodeImage` preenchido? | ✅ Sim, data URI PNG |
 | Payload do webhook | ✅ `{event, createdAt, data}`, id em `data.id` |
 | Assinatura do webhook | ✅ Verificado: **não existe** |
+| Unidades do split | ✅ FIXED em centavos, PERCENTAGE em centésimos de % |
 
 Tudo o que o módulo usa foi observado contra a API real.
 
