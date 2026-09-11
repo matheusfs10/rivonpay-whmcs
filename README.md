@@ -195,9 +195,21 @@ recebe `201 Created`, sem erro algum.
 RivonPay sai antes. Como a taxa é fixa, ela pesa em valores baixos — numa
 cobrança de R$ 1,00 o líquido é R$ 0,50, e 10% repassa R$ 0,05.
 
-Configuração inválida (UUID malformado, valor não numérico, percentual acima de
-100) **não impede o pagamento**: o módulo registra `split-ignorado` no Gateway
-Log e emite a cobrança sem divisão. Dividir errado seria pior que não dividir.
+**Cuidado com valor fixo em faturas pequenas.** O limite é o líquido, e a taxa
+sai antes: um split fixo de R$ 0,50 não cabe numa cobrança de R$ 1,00, porque a
+taxa já consumiu metade. A API recusa com `SplitExceedsNet`.
+
+**Erro de split nunca bloqueia o pagamento.** Seja configuração inválida no admin
+(UUID malformado, valor não numérico, percentual acima de 100) ou recusa da API
+(`SplitExceedsNet`, `SplitRecipientNotFound`), o módulo emite a cobrança **sem
+divisão** e registra o motivo no Gateway Log, como `split-ignorado` ou
+`split-recusado-pela-API`.
+
+A razão é que erro de split é problema do administrador, não do cliente —
+travar a venda e mostrar a ele uma mensagem sobre split seria o pior resultado
+possível. O desvio favorece você, que recebe integral, nunca um terceiro. Mas
+**confira o log**: split silenciosamente desligado é receita de parceiro que não
+foi repassada.
 
 Não há API para consultar recebedores — a lista existe apenas no painel.
 

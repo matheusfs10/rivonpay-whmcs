@@ -209,6 +209,8 @@ Mensagens em português. Stack: Node/Express + Zod, atrás de Caddy (`Via: 1.1 C
 | 401 | `Unauthorized` | `Credencial ausente.` (esquema não reconhecido) ou `Credencial inválida.` (valor errado) | — |
 | 404 | `NotFound` | Rota ou transação inexistente | — |
 | 422 | `AmountBelowMinimum` | `amount` < 100 | — |
+| 422 | `SplitExceedsNet` | Soma do split maior que o líquido | — |
+| 422 | `SplitRecipientNotFound` | `recipientSplitId` inexistente | — |
 | 502 | `AcquirerUnavailable` | Adquirente recusou | **string** |
 
 > **Atenção ao implementar:** `details` é polimórfico — array em `ValidationError`,
@@ -397,6 +399,32 @@ líquido, e não de R$ 5,00. Ou seja, a unidade **e** a base de cálculo.
 
 > **Para testar split, use este método.** `splits[].amount` na resposta da
 > criação é a fonte confiável, e não exige pagamento nem consulta ao painel.
+
+### Limites e erros do split
+
+Verificado em 2026-09-11:
+
+| Cenário | Resposta |
+|---|---|
+| Split **igual** ao líquido | `201` — permitido |
+| Split 1 centavo **acima** do líquido | `422 SplitExceedsNet` |
+| `PERCENTAGE` de 100% | `201` — permitido (repassa o líquido inteiro) |
+| Recebedor inexistente | `422 SplitRecipientNotFound` |
+
+```json
+{"ok":false,"code":"SplitExceedsNet",
+ "message":"A soma do split (R$ 30,00) passa do valor líquido da cobrança (R$ 0,57)."}
+```
+
+O limite é o líquido, e ele pode ser consumido por inteiro. Com **valor fixo**
+isso estoura facilmente em faturas pequenas: a taxa de R$ 0,50 sai primeiro, de
+modo que um split fixo de R$ 0,50 já não cabe numa cobrança de R$ 1,00.
+
+**Como o módulo trata:** erro de split é configuração do lojista, não problema do
+cliente. Em vez de bloquear o pagamento com uma mensagem que o cliente não
+entende, a cobrança é **refeita sem split**, o pagamento segue, e o motivo vai
+para o Gateway Log como `split-recusado-pela-API`. O desvio favorece o lojista,
+que recebe integral — nunca um terceiro.
 
 ### Incide sobre o líquido, não sobre o bruto
 

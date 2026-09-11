@@ -864,6 +864,38 @@ function rivonpay_charge(array $params, $invoiceId, $amountCents, array $client)
 
     $response = rivonpay_request($params, 'POST', '/v1/transactions/', $body);
 
+    // Erro de split e configuracao do lojista, nao problema do cliente.
+    //
+    //   SplitExceedsNet         - a divisao passa do liquido (comum com valor
+    //                             fixo em fatura pequena: taxa + split > valor)
+    //   SplitRecipientNotFound  - UUID de recebedor que nao existe
+    //
+    // Bloquear o pagamento nesse caso seria o pior dos mundos: o cliente ve uma
+    // mensagem sobre split que nao lhe diz respeito, e a venda nao acontece. A
+    // cobranca e refeita sem divisao, o pagamento segue, e o motivo fica no log
+    // para o administrador corrigir. O desvio favorece o lojista, que recebe
+    // integral - nunca um terceiro.
+    if ($split !== null && $response['code'] === 422
+        && isset($response['decoded']['code'])
+        && strpos($response['decoded']['code'], 'Split') === 0) {
+
+        if (function_exists('logModuleCall')) {
+            logModuleCall(
+                'rivonpay',
+                'split-recusado-pela-API',
+                array('invoiceid' => $invoiceId, 'split' => $split),
+                $response['decoded']['code'] . ': ' . $response['decoded']['message']
+                    . ' | Cobranca refeita SEM split para nao bloquear o pagamento.'
+                    . ' Revise a configuracao de split do gateway.',
+                null,
+                rivonpay_maskValues($params)
+            );
+        }
+
+        unset($body['split']);
+        $response = rivonpay_request($params, 'POST', '/v1/transactions/', $body);
+    }
+
     // 502 AcquirerUnavailable e transitorio e acontece em producao - tratar sem
     // quebrar a fatura (ver docs/API_FINDINGS.md secao 7).
     if ($response['code'] === 502) {
