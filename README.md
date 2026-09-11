@@ -73,6 +73,10 @@ para que uma aba esquecida aberta não produza uma cobrança nova por hora:
    | Ativar split | opcional — ver [Split de valores](#split-de-valores) |
    | Log detalhado | ligue durante os testes |
 
+   ![Tela de configuração do gateway, com credenciais, dados do cliente e split](docs/img/config.png)
+
+   > Prévia dos campos. A moldura exata depende do tema do seu admin.
+
 7. As tabelas `mod_rivonpay` e `mod_rivonpay_links` são criadas automaticamente
    no primeiro uso. Não é necessário rodar SQL.
 
