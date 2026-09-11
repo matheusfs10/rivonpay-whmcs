@@ -42,20 +42,34 @@ function rivonpay_MetaData()
 }
 
 /**
- * Cabecalho e separadores da tela de configuracao.
+ * Etiqueta de secao na tela de configuracao.
  *
- * O WHMCS renderiza Description como HTML, o que permite dar alguma estrutura a
- * uma tela que e, por padrao, so uma pilha de campos.
+ * Vai dentro da Description de um campo real, e nao num campo proprio: o WHMCS
+ * IGNORA campos com Type "System" que so tenham Description - eles nao chegam a
+ * virar linha na tabela. Ja a Description dos campos normais e renderizada como
+ * HTML, e e por isso que a formatacao mora aqui.
  */
-function rivonpay_sectionHeader($title, $subtitle = '')
+function rivonpay_tag($texto)
 {
-    return '<div style="margin:18px 0 2px;padding-top:14px;border-top:1px solid #e6e9f0;">'
-        . '<span style="font-size:13px;font-weight:700;letter-spacing:.04em;'
-        . 'text-transform:uppercase;color:#26B3A6;">' . $title . '</span>'
-        . ($subtitle !== ''
-            ? '<div style="color:#7a8296;font-size:12px;margin-top:3px;">' . $subtitle . '</div>'
-            : '')
-        . '</div>';
+    return '<span style="display:inline-block;padding:2px 8px;margin-right:6px;'
+        . 'border-radius:4px;background:#e6f6f4;color:#12796f;font-size:11px;'
+        . 'font-weight:700;letter-spacing:.05em;text-transform:uppercase;">'
+        . $texto . '</span>';
+}
+
+/**
+ * Marca da RivonPay, em escala pequena, para a primeira linha da configuracao.
+ */
+function rivonpay_brand()
+{
+    return '<img src="https://app.rivonpay.com.br/logo.svg" alt="" width="16" height="16" '
+        . 'style="vertical-align:-3px;margin-right:5px;">'
+        . '<strong style="color:#12796f;">RivonPay</strong>';
+}
+
+function rivonpay_hint($texto)
+{
+    return '<span style="color:#7a8296;">' . $texto . '</span>';
 }
 
 function rivonpay_config()
@@ -66,84 +80,50 @@ function rivonpay_config()
             'Value' => 'RivonPay Pix',
         ),
 
-        'cabecalho' => array(
-            'FriendlyName' => ' ',
-            'Type'         => 'System',
-            'Description'  =>
-                '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;'
-                . 'background:#f4fbfa;border:1px solid #cfece8;border-radius:10px;margin-bottom:6px;">'
-                . '<img src="https://app.rivonpay.com.br/logo.svg" alt="RivonPay" '
-                . 'width="34" height="34" style="flex:0 0 34px;">'
-                . '<div style="line-height:1.45;">'
-                . '<div style="font-size:15px;font-weight:700;color:#14303c;">RivonPay Pix</div>'
-                . '<div style="color:#5d6b7a;font-size:12.5px;">'
-                . 'Cobranca Pix com QR Code na fatura e baixa automatica na confirmacao.'
-                . '</div></div></div>',
-        ),
-
-        'secCredenciais' => array(
-            'FriendlyName' => ' ',
-            'Type'         => 'System',
-            'Description'  => rivonpay_sectionHeader(
-                'Credenciais',
-                'Painel RivonPay &rsaquo; Integracao. Enviadas como <code>Basic base64(pk:sk)</code>.'
-            ),
-        ),
         'publicKey' => array(
             'FriendlyName' => 'Public Key',
             'Type'         => 'text',
             'Size'         => '60',
-            'Description'  => '<span style="color:#7a8296;">Comeca com <code>rvp_pk_</code></span>',
+            'Description'  => rivonpay_tag('Credenciais') . rivonpay_brand()
+                . rivonpay_hint(' &middot; painel &rsaquo; Integração. Começa com <code>rvp_pk_</code>.'),
         ),
         'secretKey' => array(
             'FriendlyName' => 'Secret Key',
             'Type'         => 'password',
             'Size'         => '60',
-            'Description'  => '<span style="color:#7a8296;">Comeca com <code>rvp_sk_</code>. '
-                . 'Nunca aparece nos logs.</span>',
+            'Description'  => rivonpay_hint('Começa com <code>rvp_sk_</code>. Enviada como '
+                . '<code>Basic base64(pk:sk)</code> e nunca aparece nos logs.'),
         ),
 
-        'secCliente' => array(
-            'FriendlyName' => ' ',
-            'Type'         => 'System',
-            'Description'  => rivonpay_sectionHeader(
-                'Dados do cliente',
-                'A RivonPay exige CPF ou CNPJ em toda cobranca.'
-            ),
-        ),
         'taxIdCustomField' => array(
             'FriendlyName' => 'Campo personalizado CPF/CNPJ',
             'Type'         => 'text',
             'Size'         => '40',
             'Default'      => 'CPF/CNPJ',
-            'Description'  => '<span style="color:#7a8296;">Consultado quando o cliente nao tem o '
-                . 'CPF/CNPJ no cadastro padrao do WHMCS. Sem nenhum dos dois, a fatura exibe um '
-                . 'aviso pedindo para completar o cadastro.</span>',
+            'Description'  => rivonpay_tag('Dados do cliente')
+                . rivonpay_hint('A RivonPay exige CPF ou CNPJ em toda cobrança. Este campo é '
+                    . 'consultado quando o cliente não tem o documento no cadastro padrão do '
+                    . 'WHMCS. Sem nenhum dos dois, a fatura exibe um aviso pedindo para '
+                    . 'completar o cadastro.'),
         ),
 
-        'secSplit' => array(
-            'FriendlyName' => ' ',
-            'Type'         => 'System',
-            'Description'  => rivonpay_sectionHeader(
-                'Split de valores &mdash; opcional',
-                'Repassa parte de cada pagamento a outro recebedor. Deixe desligado para receber tudo.'
-            ),
-        ),
         'splitEnabled' => array(
             'FriendlyName' => 'Ativar split',
             'Type'         => 'yesno',
-            'Description'  => '<span style="color:#7a8296;">Divide automaticamente todo pagamento '
-                . 'recebido por este gateway.</span>',
+            'Description'  => rivonpay_tag('Split de valores')
+                . rivonpay_hint('Opcional. Repassa parte de <strong>todo</strong> pagamento '
+                    . 'recebido por este gateway a outro recebedor. Deixe desligado para '
+                    . 'receber o valor integral.'),
         ),
         'splitRecipientId' => array(
             'FriendlyName' => 'Recebedor',
             'Type'         => 'text',
             'Size'         => '46',
-            'Description'  => '<span style="color:#7a8296;">UUID do recebedor, copiado do painel da '
-                . 'RivonPay. Nao ha API para consultar essa lista.</span>',
+            'Description'  => rivonpay_hint('UUID do recebedor, copiado do painel da RivonPay. '
+                . 'Não há API para consultar essa lista.'),
         ),
         'splitType' => array(
-            'FriendlyName' => 'Tipo de divisao',
+            'FriendlyName' => 'Tipo de divisão',
             'Type'         => 'dropdown',
             'Options'      => array(
                 'PERCENTAGE' => 'Porcentagem (%)',
@@ -155,24 +135,18 @@ function rivonpay_config()
             'FriendlyName' => 'Quanto repassar',
             'Type'         => 'text',
             'Size'         => '14',
-            'Description'  => '<span style="color:#7a8296;">Informe no formato natural: '
-                . '<strong>10</strong> para 10%, ou <strong>5,00</strong> para R$ 5,00. '
-                . 'A conversao para a unidade da API e feita pelo modulo.<br>'
-                . 'O split incide sobre o <strong>valor liquido</strong>, ja descontada a taxa da '
-                . 'RivonPay.</span>',
+            'Description'  => rivonpay_hint('Informe no formato natural: <strong>10</strong> para '
+                . '10%, ou <strong>5,00</strong> para R$ 5,00 — a conversão para a unidade da API '
+                . 'é feita pelo módulo.<br>O split incide sobre o <strong>valor líquido</strong>, '
+                . 'já descontada a taxa da RivonPay.'),
         ),
 
-        'secDiagnostico' => array(
-            'FriendlyName' => ' ',
-            'Type'         => 'System',
-            'Description'  => rivonpay_sectionHeader('Diagnostico'),
-        ),
         'debugLog' => array(
             'FriendlyName' => 'Log detalhado',
             'Type'         => 'yesno',
-            'Description'  => '<span style="color:#7a8296;">Registra cada chamada em '
-                . '<em>Utilitarios &rsaquo; Logs &rsaquo; Gateway Log</em>, com a chave secreta '
-                . 'mascarada. Ligue durante os testes.</span>',
+            'Description'  => rivonpay_tag('Diagnóstico')
+                . rivonpay_hint('Registra cada chamada em <em>Utilitários &rsaquo; Logs &rsaquo; '
+                    . 'Gateway Log</em>, com a chave secreta mascarada. Ligue durante os testes.'),
         ),
     );
 }
