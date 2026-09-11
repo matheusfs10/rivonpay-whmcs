@@ -655,7 +655,7 @@ function rivonpay_reusableTransaction($invoiceId, $amountCents)
  * nao foi, recarregar a pagina criaria uma cobranca nova a cada ciclo - foi
  * exatamente assim que uma fatura acabou com 4 Pix abertos.
  */
-function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted, $allowAutoReload = false)
+function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted, $allowAutoReload = false, $checkoutUrl = '')
 {
     $emv = htmlspecialchars($qrCode, ENT_QUOTES, 'UTF-8');
 
@@ -705,6 +705,7 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
     <p style="margin:6px 0 0;color:#777;font-size:12px;">
         Assim que o pagamento for confirmado, esta página é atualizada automaticamente.
     </p>
+    RIVONPAY_CHECKOUT
 </div>
 
 <script>
@@ -732,6 +733,25 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
             box.select(); document.execCommand("copy"); done();
         }
     });
+
+    var share = document.getElementById("rivonpay-share");
+    if (share) {
+        share.addEventListener("click", function () {
+            var url = share.getAttribute("data-url");
+            var feito = function () {
+                var antes = share.textContent;
+                share.textContent = "link copiado!";
+                setTimeout(function () { share.textContent = antes; }, 2000);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(feito, feito);
+            } else {
+                var t = document.createElement("textarea");
+                t.value = url; document.body.appendChild(t); t.select();
+                document.execCommand("copy"); document.body.removeChild(t); feito();
+            }
+        });
+    }
 
     // Segundos restantes calculados no servidor: o relogio do visitante pode
     // estar torto, e comparar datas entre as duas pontas daria vencimento errado.
@@ -780,9 +800,33 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
         }
     }
 
+    // Checkout direto: leva a pagina de pagamento independente do tema, pelo
+    // link com token. Serve tanto para o cliente abrir numa tela limpa quanto
+    // para o atendente copiar e mandar por WhatsApp - por isso o "copiar", e
+    // nao so o link. Sem token gravado, o bloco inteiro some.
+    if ($checkoutUrl !== '') {
+        $safe     = htmlspecialchars($checkoutUrl, ENT_QUOTES, 'UTF-8');
+        $checkout = '
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eee;">
+        <a href="' . $safe . '" target="_blank" rel="noopener"
+           style="color:#0b5ed7;font-weight:600;text-decoration:none;font-size:14px;">
+            Checkout direto &rsaquo; abrir página de pagamento
+        </a>
+        <div style="margin-top:6px;">
+            <button type="button" id="rivonpay-share" data-url="' . $safe . '"
+                style="border:0;background:none;color:#777;font-size:12px;cursor:pointer;
+                       text-decoration:underline;padding:0;">
+                copiar link para compartilhar
+            </button>
+        </div>
+    </div>';
+    } else {
+        $checkout = '';
+    }
+
     $html = str_replace(
-        array('RIVONPAY_SEGUNDOS', 'RIVONPAY_RELOAD'),
-        array((int) $secondsLeft, $allowAutoReload ? 'true' : 'false'),
+        array('RIVONPAY_SEGUNDOS', 'RIVONPAY_RELOAD', 'RIVONPAY_CHECKOUT'),
+        array((int) $secondsLeft, $allowAutoReload ? 'true' : 'false', $checkout),
         $html
     );
 
@@ -975,11 +1019,17 @@ function rivonpay_link($params)
         return rivonpay_notice($charge['error']);
     }
 
+    // Link do checkout direto. Devolve '' se o token nao pôde ser gravado, e
+    // nesse caso o bloco simplesmente não aparece - melhor do que oferecer um
+    // link que levaria a "Link inválido".
+    $checkoutUrl = rivonpay_paymentUrl((int) $params['invoiceid'], $params);
+
     return rivonpay_renderPix(
         $charge['qrCode'],
         $charge['qrCodeImage'],
         $charge['expiresAt'],
         $params['currency'] . ' ' . number_format($params['amount'], 2, ',', '.'),
-        $charge['persisted']
+        $charge['persisted'],
+        $checkoutUrl
     );
 }

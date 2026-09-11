@@ -13,6 +13,13 @@ regressiva e confirmação em tempo real, acessível por link sem exigir login.
 
 ## Como funciona
 
+Na fatura do WHMCS, o cliente vê o QR Code, o copia-e-cola e um link de
+**checkout direto**, que abre a página de pagamento independente do tema — já
+com o token, pronta para compartilhar com qualquer pessoa:
+
+![Fatura do WHMCS com QR Code, copia-e-cola e link de checkout direto](docs/img/fatura.png)
+
+Esse link leva à página abaixo, que também vai por e-mail e por WhatsApp.
 O cliente abre o link e vê o QR Code, o tempo restante e o código copia-e-cola.
 A página consulta a API a cada 6 segundos e troca sozinha quando o Pix cai — sem
 o cliente precisar atualizar nada.
