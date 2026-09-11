@@ -67,10 +67,10 @@ para que uma aba esquecida aberta não produza uma cobrança nova por hora:
 
    | Campo | Observação |
    |---|---|
-   | Public Key (pk) | chave pública da conta |
-   | Secret Key (sk) | enviada como `Basic base64(pk:sk)` |
-   | Status considerados pagos | `PAID` — confirmado contra a API |
+   | Public Key | começa com `rvp_pk_` |
+   | Secret Key | começa com `rvp_sk_`; enviada como `Basic base64(pk:sk)` |
    | Campo personalizado CPF/CNPJ | usado quando o cliente não tem `tax_id` |
+   | Ativar split | opcional — ver [Split de valores](#split-de-valores) |
    | Log detalhado | ligue durante os testes |
 
 7. As tabelas `mod_rivonpay` e `mod_rivonpay_links` são criadas automaticamente
@@ -169,6 +169,33 @@ $url = rivonpay_paymentUrl($invoiceId, getGatewayVariables('rivonpay'));
 Os demais continuam valendo, e trocar a secret key do gateway não derruba nenhum.
 
 ---
+
+## Split de valores
+
+Opcional e desligado por padrão. Quando ligado, **todo** pagamento recebido por
+este gateway repassa uma parte a outro recebedor.
+
+| Campo | O que informar |
+|---|---|
+| Recebedor | UUID copiado do painel da RivonPay |
+| Tipo de divisão | Porcentagem (%) ou Valor fixo (R$) |
+| Quanto repassar | `10` para 10%, ou `5,00` para R$ 5,00 |
+
+**Informe no formato natural.** A API espera unidades diferentes conforme o tipo
+— centavos para valor fixo, centésimos de por cento para percentual (`1000` =
+10%) — e essa conversão é feita pelo módulo. Isso evita o erro de 100× que a
+especificação da API não previne: quem manda `10` esperando 10% repassa 0,1% e
+recebe `201 Created`, sem erro algum.
+
+**O split incide sobre o líquido,** não sobre o valor da fatura: a taxa da
+RivonPay sai antes. Como a taxa é fixa, ela pesa em valores baixos — numa
+cobrança de R$ 1,00 o líquido é R$ 0,50, e 10% repassa R$ 0,05.
+
+Configuração inválida (UUID malformado, valor não numérico, percentual acima de
+100) **não impede o pagamento**: o módulo registra `split-ignorado` no Gateway
+Log e emite a cobrança sem divisão. Dividir errado seria pior que não dividir.
+
+Não há API para consultar recebedores — a lista existe apenas no painel.
 
 ## Notas de comportamento
 

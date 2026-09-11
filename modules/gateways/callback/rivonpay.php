@@ -136,17 +136,9 @@ if ($response['code'] < 200 || $response['code'] >= 300 || !is_array($response['
 $transaction = $response['decoded'];
 $status      = isset($transaction['status']) ? (string) $transaction['status'] : '';
 
-// Status considerados pagos, configuraveis no admin (a API devolve MAIUSCULAS).
-// Confirmado contra a API: PENDING na criacao, PAID apos a liquidacao. O fallback
-// e deliberadamente estreito - creditar fatura com base em status nao observado
-// seria dar baixa sem dinheiro.
-$paidStatuses = array_filter(array_map(
-    function ($s) { return strtoupper(trim($s)); },
-    explode(',', (string) $gatewayParams['paidStatuses'])
-));
-if (empty($paidStatuses)) {
-    $paidStatuses = array('PAID');
-}
+// Confirmado contra a API: PENDING na criacao, PAID apos a liquidacao.
+// A lista vive em rivonpay_paidStatuses(), no modulo do gateway.
+$paidStatuses = rivonpay_paidStatuses();
 
 $invoiceId = rivonpay_resolveInvoiceId($transaction, $transactionId);
 

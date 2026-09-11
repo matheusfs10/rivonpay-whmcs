@@ -190,13 +190,7 @@ $paidAmount = (float) Capsule::table('tblaccounts')->where('invoiceid', $invoice
 $balance    = round(((float) $invoice->total) - $paidAmount, 2);
 $isPaid     = ($invoice->status === 'Paid' || $balance <= 0);
 
-$paidStatuses = array_filter(array_map(
-    function ($s) { return strtoupper(trim($s)); },
-    explode(',', (string) $gatewayParams['paidStatuses'])
-));
-if (empty($paidStatuses)) {
-    $paidStatuses = array('PAID');
-}
+$paidStatuses = rivonpay_paidStatuses();
 
 /**
  * Reconsulta a cobranca na API e, se estiver paga, garante a baixa.

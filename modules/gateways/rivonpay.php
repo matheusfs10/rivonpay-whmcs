@@ -41,6 +41,23 @@ function rivonpay_MetaData()
     );
 }
 
+/**
+ * Cabecalho e separadores da tela de configuracao.
+ *
+ * O WHMCS renderiza Description como HTML, o que permite dar alguma estrutura a
+ * uma tela que e, por padrao, so uma pilha de campos.
+ */
+function rivonpay_sectionHeader($title, $subtitle = '')
+{
+    return '<div style="margin:18px 0 2px;padding-top:14px;border-top:1px solid #e6e9f0;">'
+        . '<span style="font-size:13px;font-weight:700;letter-spacing:.04em;'
+        . 'text-transform:uppercase;color:#26B3A6;">' . $title . '</span>'
+        . ($subtitle !== ''
+            ? '<div style="color:#7a8296;font-size:12px;margin-top:3px;">' . $subtitle . '</div>'
+            : '')
+        . '</div>';
+}
+
 function rivonpay_config()
 {
     return array(
@@ -48,38 +65,114 @@ function rivonpay_config()
             'Type'  => 'System',
             'Value' => 'RivonPay Pix',
         ),
+
+        'cabecalho' => array(
+            'FriendlyName' => ' ',
+            'Type'         => 'System',
+            'Description'  =>
+                '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;'
+                . 'background:#f4fbfa;border:1px solid #cfece8;border-radius:10px;margin-bottom:6px;">'
+                . '<img src="https://app.rivonpay.com.br/logo.svg" alt="RivonPay" '
+                . 'width="34" height="34" style="flex:0 0 34px;">'
+                . '<div style="line-height:1.45;">'
+                . '<div style="font-size:15px;font-weight:700;color:#14303c;">RivonPay Pix</div>'
+                . '<div style="color:#5d6b7a;font-size:12.5px;">'
+                . 'Cobranca Pix com QR Code na fatura e baixa automatica na confirmacao.'
+                . '</div></div></div>',
+        ),
+
+        'secCredenciais' => array(
+            'FriendlyName' => ' ',
+            'Type'         => 'System',
+            'Description'  => rivonpay_sectionHeader(
+                'Credenciais',
+                'Painel RivonPay &rsaquo; Integracao. Enviadas como <code>Basic base64(pk:sk)</code>.'
+            ),
+        ),
         'publicKey' => array(
-            'FriendlyName' => 'Public Key (pk)',
+            'FriendlyName' => 'Public Key',
             'Type'         => 'text',
             'Size'         => '60',
-            'Description'  => 'Chave publica da conta RivonPay.',
+            'Description'  => '<span style="color:#7a8296;">Comeca com <code>rvp_pk_</code></span>',
         ),
         'secretKey' => array(
-            'FriendlyName' => 'Secret Key (sk)',
+            'FriendlyName' => 'Secret Key',
             'Type'         => 'password',
             'Size'         => '60',
-            'Description'  => 'Chave secreta. Enviada como Basic base64(pk:sk).',
+            'Description'  => '<span style="color:#7a8296;">Comeca com <code>rvp_sk_</code>. '
+                . 'Nunca aparece nos logs.</span>',
         ),
-        'paidStatuses' => array(
-            'FriendlyName' => 'Status considerados pagos',
-            'Type'         => 'text',
-            'Size'         => '60',
-            'Default'      => 'PAID',
-            'Description'  => 'Separados por virgula, comparacao ignora maiusculas/minusculas. '
-                . 'Apenas PAID foi confirmado contra a API - so acrescente outro valor '
-                . 'depois de observa-lo numa cobranca realmente liquidada.',
+
+        'secCliente' => array(
+            'FriendlyName' => ' ',
+            'Type'         => 'System',
+            'Description'  => rivonpay_sectionHeader(
+                'Dados do cliente',
+                'A RivonPay exige CPF ou CNPJ em toda cobranca.'
+            ),
         ),
         'taxIdCustomField' => array(
             'FriendlyName' => 'Campo personalizado CPF/CNPJ',
             'Type'         => 'text',
             'Size'         => '40',
             'Default'      => 'CPF/CNPJ',
-            'Description'  => 'Usado quando o cliente nao tem o CPF/CNPJ no cadastro padrao do WHMCS.',
+            'Description'  => '<span style="color:#7a8296;">Consultado quando o cliente nao tem o '
+                . 'CPF/CNPJ no cadastro padrao do WHMCS. Sem nenhum dos dois, a fatura exibe um '
+                . 'aviso pedindo para completar o cadastro.</span>',
+        ),
+
+        'secSplit' => array(
+            'FriendlyName' => ' ',
+            'Type'         => 'System',
+            'Description'  => rivonpay_sectionHeader(
+                'Split de valores &mdash; opcional',
+                'Repassa parte de cada pagamento a outro recebedor. Deixe desligado para receber tudo.'
+            ),
+        ),
+        'splitEnabled' => array(
+            'FriendlyName' => 'Ativar split',
+            'Type'         => 'yesno',
+            'Description'  => '<span style="color:#7a8296;">Divide automaticamente todo pagamento '
+                . 'recebido por este gateway.</span>',
+        ),
+        'splitRecipientId' => array(
+            'FriendlyName' => 'Recebedor',
+            'Type'         => 'text',
+            'Size'         => '46',
+            'Description'  => '<span style="color:#7a8296;">UUID do recebedor, copiado do painel da '
+                . 'RivonPay. Nao ha API para consultar essa lista.</span>',
+        ),
+        'splitType' => array(
+            'FriendlyName' => 'Tipo de divisao',
+            'Type'         => 'dropdown',
+            'Options'      => array(
+                'PERCENTAGE' => 'Porcentagem (%)',
+                'FIXED'      => 'Valor fixo (R$)',
+            ),
+            'Default'      => 'PERCENTAGE',
+        ),
+        'splitValue' => array(
+            'FriendlyName' => 'Quanto repassar',
+            'Type'         => 'text',
+            'Size'         => '14',
+            'Description'  => '<span style="color:#7a8296;">Informe no formato natural: '
+                . '<strong>10</strong> para 10%, ou <strong>5,00</strong> para R$ 5,00. '
+                . 'A conversao para a unidade da API e feita pelo modulo.<br>'
+                . 'O split incide sobre o <strong>valor liquido</strong>, ja descontada a taxa da '
+                . 'RivonPay.</span>',
+        ),
+
+        'secDiagnostico' => array(
+            'FriendlyName' => ' ',
+            'Type'         => 'System',
+            'Description'  => rivonpay_sectionHeader('Diagnostico'),
         ),
         'debugLog' => array(
             'FriendlyName' => 'Log detalhado',
             'Type'         => 'yesno',
-            'Description'  => 'Registra as chamadas em Utilitarios > Logs > Gateway Log (a chave secreta e mascarada).',
+            'Description'  => '<span style="color:#7a8296;">Registra cada chamada em '
+                . '<em>Utilitarios &rsaquo; Logs &rsaquo; Gateway Log</em>, com a chave secreta '
+                . 'mascarada. Ligue durante os testes.</span>',
         ),
     );
 }
@@ -282,6 +375,102 @@ function rivonpay_paymentUrl($invoiceId, array $params)
     }
 
     return rtrim($base, '/') . '/rivonpix.php?token=' . $token;
+}
+
+/**
+ * Status que significam pagamento liquidado.
+ *
+ * Era um campo de configuracao; virou constante depois que o ciclo foi
+ * confirmado contra a API real (PENDING -> PAID) e o webhook mostrou o mesmo
+ * vocabulario. Se a RivonPay introduzir outro status de liquidacao, e aqui que
+ * se acrescenta - e so depois de observa-lo numa cobranca realmente paga.
+ *
+ * Errar para menos e seguro (fatura fica em aberto); errar para mais credita
+ * fatura sem dinheiro.
+ */
+function rivonpay_paidStatuses()
+{
+    return array('PAID');
+}
+
+/**
+ * Monta o campo `split` do corpo da cobranca a partir da configuracao.
+ *
+ * CUIDADO COM AS UNIDADES. O openapi.json declara `value` apenas como integer,
+ * mas a unidade muda conforme o amountType:
+ *
+ *   FIXED       -> centavos              (500  = R$ 5,00)
+ *   PERCENTAGE  -> centesimos de por cento (1000 = 10%)
+ *
+ * Quem manda 10 esperando 10% repassa 0,1% e recebe 201 Created, sem erro
+ * nenhum. Por isso o admin informa no formato natural ("10" ou "5,00") e a
+ * conversao acontece aqui, num lugar so.
+ *
+ * Devolve null quando o split esta desligado ou mal configurado - nesse caso a
+ * cobranca segue sem split, o que e preferivel a dividir errado.
+ */
+function rivonpay_splitFor(array $params)
+{
+    if (empty($params['splitEnabled'])) {
+        return null;
+    }
+
+    $descarta = function ($motivo) use ($params) {
+        if (function_exists('logModuleCall')) {
+            logModuleCall('rivonpay', 'split-ignorado', array(
+                'recebedor' => isset($params['splitRecipientId']) ? $params['splitRecipientId'] : '',
+                'tipo'      => isset($params['splitType']) ? $params['splitType'] : '',
+                'valor'     => isset($params['splitValue']) ? $params['splitValue'] : '',
+            ), $motivo);
+        }
+        return null;
+    };
+
+    $recipient = trim((string) $params['splitRecipientId']);
+    if (!preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $recipient)) {
+        return $descarta('Split ligado, mas o ID do recebedor nao e um UUID valido.');
+    }
+
+    // Tolerante ao formato do dropdown: algumas versoes do WHMCS devolvem a
+    // chave da opcao, outras o rotulo exibido.
+    $tipoBruto = strtoupper((string) $params['splitType']);
+    if (strpos($tipoBruto, 'PERCENT') !== false || strpos($tipoBruto, 'PORCENT') !== false || strpos($tipoBruto, '%') !== false) {
+        $tipo = 'PERCENTAGE';
+    } elseif (strpos($tipoBruto, 'FIX') !== false || strpos($tipoBruto, 'R$') !== false) {
+        $tipo = 'FIXED';
+    } else {
+        return $descarta('Tipo de divisao nao reconhecido: ' . $tipoBruto);
+    }
+
+    // Aceita virgula decimal, como se escreve em portugues.
+    $bruto = str_replace(',', '.', trim((string) $params['splitValue']));
+    if ($bruto === '' || !is_numeric($bruto)) {
+        return $descarta('Valor do split vazio ou nao numerico.');
+    }
+
+    $numero = (float) $bruto;
+    if ($numero <= 0) {
+        return $descarta('Valor do split precisa ser maior que zero.');
+    }
+
+    if ($tipo === 'PERCENTAGE') {
+        if ($numero > 100) {
+            return $descarta('Percentual de split maior que 100%.');
+        }
+        $value = (int) round($numero * 100); // 10 -> 1000 centesimos de %
+    } else {
+        $value = (int) round($numero * 100); // 5.00 -> 500 centavos
+    }
+
+    if ($value <= 0) {
+        return $descarta('Valor do split arredondou para zero.');
+    }
+
+    return array(array(
+        'recipientSplitId' => $recipient,
+        'amountType'       => $tipo,
+        'value'            => $value,
+    ));
 }
 
 /**
@@ -693,6 +882,11 @@ function rivonpay_charge(array $params, $invoiceId, $amountCents, array $client)
     // A validade nao e enviada: quem decide e a plataforma, e o vencimento real
     // vem em pix.expiresAt na resposta. Mandar expiresInSeconds so criaria a
     // chance de o admin configurar um valor diferente do que a API aplica.
+
+    $split = rivonpay_splitFor($params);
+    if ($split !== null) {
+        $body['split'] = $split;
+    }
 
     $response = rivonpay_request($params, 'POST', '/v1/transactions/', $body);
 
