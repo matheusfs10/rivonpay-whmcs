@@ -154,9 +154,6 @@ function rivonpay_config()
 // ------------------------------------------------------------------- suporte
 
 /**
- * Cria a tabela de apoio na primeira execucao.
- */
-/**
  * Colunas que o modulo usa. Se qualquer uma faltar, o INSERT falha.
  */
 function rivonpay_requiredColumns()
@@ -647,9 +644,16 @@ function rivonpay_reusableTransaction($invoiceId, $amountCents)
 
     return $row;
 }
-
 /**
- * HTML do QR Code + copia-e-cola.
+ * HTML do QR Code + copia-e-cola, para dentro da fatura do WHMCS.
+ *
+ * Este bloco vive DENTRO da pagina de fatura, que tem tema proprio e claro -
+ * por isso usa a paleta clara da RivonPay e nao acompanha prefers-color-scheme
+ * como o rivonpix.php faz. Um bloco escuro dentro de uma fatura clara destoaria.
+ *
+ * Todas as classes sao prefixadas com "rp-" e as propriedades que o tema do
+ * WHMCS costuma redefinir (font, border, background de input e button) sao
+ * declaradas explicitamente, para o bloco nao herdar surpresas do Bootstrap.
  *
  * $allowAutoReload so deve ser true quando a cobranca foi gravada em banco. Se
  * nao foi, recarregar a pagina criaria uma cobranca nova a cada ciclo - foi
@@ -664,7 +668,7 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
     if (!empty($qrCodeImage)) {
         $imgSrc = $qrCodeImage;
     } else {
-        $imgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' . rawurlencode($qrCode);
+        $imgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=0&data=' . rawurlencode($qrCode);
     }
     $imgSrc = htmlspecialchars($imgSrc, ENT_QUOTES, 'UTF-8');
 
@@ -672,84 +676,104 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
     if (!empty($expiresAt)) {
         $ts = strtotime($expiresAt);
         if ($ts) {
-            $expiraTexto = 'Este código expira em ' . date('d/m/Y H:i', $ts) . '.';
+            $expiraTexto = 'Expira em ' . date('d/m/Y \à\s H:i', $ts);
         }
     }
 
+    $valor = htmlspecialchars($amountFormatted, ENT_QUOTES, 'UTF-8');
+
     $html = '
-<div id="rivonpay-box" style="max-width:420px;margin:0 auto;text-align:center;font-family:inherit;">
-    <h3 style="margin:0 0 4px;font-size:18px;">Pague com Pix</h3>
-    <p style="margin:0 0 16px;color:#555;font-size:14px;">
-        Valor: <strong>' . htmlspecialchars($amountFormatted, ENT_QUOTES, 'UTF-8') . '</strong>
-    </p>
+<div class="rp-wrap">
+<style>
+/* Escopo fechado em .rp-wrap para nao vazar no tema da fatura. */
+.rp-wrap{--rp-green:#16a34a;--rp-green-dark:#15803d;--rp-soft:#e9f9ef;
+         --rp-fg:#181c21;--rp-muted:#5c656e;--rp-border:#e2e6eb;--rp-surface:#f6f7f9;
+         max-width:560px;margin:0 auto;color:var(--rp-fg);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+         text-align:left;box-sizing:border-box}
+.rp-wrap *{box-sizing:border-box}
+.rp-card{border:1px solid var(--rp-border);border-radius:14px;padding:18px;background:#fff}
+.rp-top{display:flex;align-items:center;justify-content:space-between;gap:10px;
+        flex-wrap:wrap;margin-bottom:14px}
+.rp-status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+           color:#8a6100;background:#fef6e0;border-radius:999px;padding:5px 12px}
+.rp-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#e3a008}
+.rp-valor{font-size:20px;font-weight:700;color:var(--rp-green);white-space:nowrap}
+/* Empilha sozinho quando o tema da fatura da pouca largura ao bloco. */
+.rp-body{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.rp-qrbox{flex:0 0 auto;margin:0 auto;background:#fff;border:1px solid var(--rp-border);
+          border-radius:12px;padding:8px;line-height:0}
+.rp-qr{display:block;width:170px;height:170px}
+.rp-side{flex:1 1 200px;min-width:190px}
+.rp-hint{margin:0 0 10px;color:var(--rp-muted);font-size:13px}
+.rp-hint b{color:var(--rp-fg)}
+.rp-codeline{display:flex;gap:6px;margin-bottom:10px}
+.rp-code{flex:1 1 auto;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+         font-size:11.5px;color:var(--rp-muted);background:var(--rp-surface);
+         border:1px solid var(--rp-border);border-radius:8px;padding:9px 10px;height:36px}
+.rp-btn{display:block;width:100%;border:0;border-radius:9px;padding:12px;cursor:pointer;
+        background:var(--rp-green);color:#fff;font-size:14.5px;font-weight:700;
+        font-family:inherit;line-height:1.2;text-align:center}
+.rp-btn:hover{background:var(--rp-green-dark)}
+.rp-meta{margin:10px 0 0;color:var(--rp-muted);font-size:12px}
+.rp-foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--rp-border);text-align:center}
+.rp-link{color:var(--rp-green);font-weight:600;text-decoration:none;font-size:13.5px}
+.rp-link:hover{text-decoration:underline}
+.rp-share{display:block;margin:5px auto 0;border:0;background:none;padding:0;cursor:pointer;
+          color:var(--rp-muted);font-size:12px;text-decoration:underline;font-family:inherit}
+.rp-exp{text-align:center;padding:6px 0 2px}
+.rp-exp .rp-t{font-size:17px;font-weight:700;color:#b3261e;margin-bottom:4px}
+@media (max-width:430px){.rp-qr{width:150px;height:150px}.rp-side{flex-basis:100%}}
+</style>
 
-    <img src="' . $imgSrc . '" alt="QR Code Pix"
-         style="width:260px;height:260px;display:block;margin:0 auto 16px;border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fff;" />
+<div class="rp-card" id="rp-card">
+    <div class="rp-top">
+        <span class="rp-status">Aguardando pagamento</span>
+        <span class="rp-valor">' . $valor . '</span>
+    </div>
 
-    <p style="margin:0 0 8px;color:#555;font-size:14px;">
-        Abra o app do seu banco, escolha <strong>Pix &gt; Ler QR Code</strong><br>
-        ou use o código abaixo.
-    </p>
-
-    <textarea id="rivonpay-emv" readonly rows="3"
-        style="width:100%;box-sizing:border-box;font-family:monospace;font-size:11px;padding:8px;
-               border:1px solid #ccc;border-radius:6px;resize:none;background:#fafafa;">' . $emv . '</textarea>
-
-    <button type="button" id="rivonpay-copy"
-        style="margin-top:10px;padding:11px 20px;border:0;border-radius:6px;background:#0b5ed7;color:#fff;
-               font-size:15px;font-weight:600;cursor:pointer;width:100%;">
-        Copiar código Pix
-    </button>
-
-    <p style="margin:14px 0 0;color:#777;font-size:12px;">' . htmlspecialchars($expiraTexto, ENT_QUOTES, 'UTF-8') . '</p>
-    <p style="margin:6px 0 0;color:#777;font-size:12px;">
-        Assim que o pagamento for confirmado, esta página é atualizada automaticamente.
-    </p>
+    <div class="rp-body">
+        <div class="rp-qrbox"><img class="rp-qr" src="' . $imgSrc . '" alt="QR Code Pix"></div>
+        <div class="rp-side">
+            <p class="rp-hint">No app do banco, escolha <b>Pix &rsaquo; Ler QR Code</b>,
+               ou use o código abaixo.</p>
+            <div class="rp-codeline">
+                <input class="rp-code" id="rp-emv" readonly value="' . $emv . '">
+            </div>
+            <button type="button" class="rp-btn" id="rp-copy">Copiar código Pix</button>
+            <p class="rp-meta">' . htmlspecialchars($expiraTexto, ENT_QUOTES, 'UTF-8') . '</p>
+        </div>
+    </div>
     RIVONPAY_CHECKOUT
 </div>
 
 <script>
 (function () {
-    var btn = document.getElementById("rivonpay-copy");
-    var box = document.getElementById("rivonpay-emv");
-    if (!btn || !box) { return; }
+    var btn  = document.getElementById("rp-copy");
+    var code = document.getElementById("rp-emv");
+    if (!btn || !code) { return; }
 
-    btn.addEventListener("click", function () {
-        var done = function () {
-            var original = btn.innerHTML;
-            btn.innerHTML = "Código copiado!";
-            btn.style.background = "#1b5e20";
-            setTimeout(function () {
-                btn.innerHTML = original;
-                btn.style.background = "#0b5ed7";
-            }, 2000);
+    function copiar(texto, alvo, textoOk) {
+        var antes = alvo.textContent;
+        var feito = function () {
+            alvo.textContent = textoOk;
+            setTimeout(function () { alvo.textContent = antes; }, 2000);
         };
-
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(box.value).then(done, function () {
-                box.select(); document.execCommand("copy"); done();
-            });
+            navigator.clipboard.writeText(texto).then(feito, feito);
         } else {
-            box.select(); document.execCommand("copy"); done();
+            var t = document.createElement("textarea");
+            t.value = texto; document.body.appendChild(t); t.select();
+            document.execCommand("copy"); document.body.removeChild(t); feito();
         }
-    });
+    }
 
-    var share = document.getElementById("rivonpay-share");
+    btn.addEventListener("click", function () { copiar(code.value, btn, "Código copiado!"); });
+
+    var share = document.getElementById("rp-share");
     if (share) {
         share.addEventListener("click", function () {
-            var url = share.getAttribute("data-url");
-            var feito = function () {
-                var antes = share.textContent;
-                share.textContent = "link copiado!";
-                setTimeout(function () { share.textContent = antes; }, 2000);
-            };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(feito, feito);
-            } else {
-                var t = document.createElement("textarea");
-                t.value = url; document.body.appendChild(t); t.select();
-                document.execCommand("copy"); document.body.removeChild(t); feito();
-            }
+            copiar(share.getAttribute("data-url"), share, "link copiado!");
         });
     }
 
@@ -759,16 +783,13 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
     var podeRecarregar = RIVONPAY_RELOAD;
 
     function mostrarExpirado() {
-        var box = document.getElementById("rivonpay-box");
-        if (!box) { return; }
-        box.innerHTML =
-            \'<h3 style="margin:0 0 8px;font-size:18px;">O código Pix expirou</h3>\' +
-            \'<p style="margin:0 0 16px;color:#555;font-size:14px;">\' +
-            \'Gere um novo código para concluir o pagamento.</p>\' +
-            \'<button type="button" id="rivonpay-novo" style="padding:11px 20px;border:0;\' +
-            \'border-radius:6px;background:#0b5ed7;color:#fff;font-size:15px;font-weight:600;\' +
-            \'cursor:pointer;width:100%;">Gerar novo código</button>\';
-        document.getElementById("rivonpay-novo").addEventListener("click", function () {
+        var card = document.getElementById("rp-card");
+        if (!card) { return; }
+        card.innerHTML =
+            \'<div class="rp-exp"><div class="rp-t">O código Pix expirou</div>\' +
+            \'<p class="rp-meta" style="margin:0 0 12px;">Gere um novo para concluir o pagamento.</p>\' +
+            \'<button type="button" class="rp-btn" id="rp-novo">Gerar novo código</button></div>\';
+        document.getElementById("rp-novo").addEventListener("click", function () {
             window.location.reload();
         });
     }
@@ -776,9 +797,6 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
     if (restam > 0) {
         setTimeout(mostrarExpirado, restam * 1000);
 
-        // Recarrega enquanto a cobranca vale, para refletir a confirmacao do
-        // pagamento. Para no vencimento: continuar recarregando geraria uma
-        // cobranca nova a cada ciclo numa aba esquecida aberta.
         // So agenda se o proximo ciclo cair com folga ANTES do vencimento.
         // Recarregar depois dele criaria a cobranca nova que queremos evitar.
         if (podeRecarregar && restam > 50) {
@@ -788,10 +806,24 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
         mostrarExpirado();
     }
 })();
-</script>';
+</script>
+</div>';
 
-    // Sem persistencia nao ha reaproveitamento, entao recarregar criaria uma
-    // cobranca nova a cada ciclo - nesse caso o reload fica desligado.
+    // Checkout direto: leva a pagina de pagamento independente do tema, pelo
+    // link com token. Serve tanto para o cliente abrir numa tela limpa quanto
+    // para o atendente copiar e mandar por WhatsApp - por isso o "copiar", e
+    // nao so o link. Sem token gravado, o bloco inteiro some.
+    if ($checkoutUrl !== '') {
+        $safe     = htmlspecialchars($checkoutUrl, ENT_QUOTES, 'UTF-8');
+        $checkout = '<div class="rp-foot">'
+            . '<a class="rp-link" href="' . $safe . '" target="_blank" rel="noopener">'
+            . 'Checkout direto &rsaquo; abrir página de pagamento</a>'
+            . '<button type="button" class="rp-share" id="rp-share" data-url="' . $safe . '">'
+            . 'copiar link para compartilhar</button></div>';
+    } else {
+        $checkout = '';
+    }
+
     $secondsLeft = 0;
     if (!empty($expiresAt)) {
         $ts = strtotime($expiresAt);
@@ -800,37 +832,11 @@ function rivonpay_renderPix($qrCode, $qrCodeImage, $expiresAt, $amountFormatted,
         }
     }
 
-    // Checkout direto: leva a pagina de pagamento independente do tema, pelo
-    // link com token. Serve tanto para o cliente abrir numa tela limpa quanto
-    // para o atendente copiar e mandar por WhatsApp - por isso o "copiar", e
-    // nao so o link. Sem token gravado, o bloco inteiro some.
-    if ($checkoutUrl !== '') {
-        $safe     = htmlspecialchars($checkoutUrl, ENT_QUOTES, 'UTF-8');
-        $checkout = '
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eee;">
-        <a href="' . $safe . '" target="_blank" rel="noopener"
-           style="color:#0b5ed7;font-weight:600;text-decoration:none;font-size:14px;">
-            Checkout direto &rsaquo; abrir página de pagamento
-        </a>
-        <div style="margin-top:6px;">
-            <button type="button" id="rivonpay-share" data-url="' . $safe . '"
-                style="border:0;background:none;color:#777;font-size:12px;cursor:pointer;
-                       text-decoration:underline;padding:0;">
-                copiar link para compartilhar
-            </button>
-        </div>
-    </div>';
-    } else {
-        $checkout = '';
-    }
-
-    $html = str_replace(
+    return str_replace(
         array('RIVONPAY_SEGUNDOS', 'RIVONPAY_RELOAD', 'RIVONPAY_CHECKOUT'),
         array((int) $secondsLeft, $allowAutoReload ? 'true' : 'false', $checkout),
         $html
     );
-
-    return $html;
 }
 
 // --------------------------------------------------------------- ponto de uso
